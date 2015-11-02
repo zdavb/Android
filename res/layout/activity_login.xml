@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal" >
+    <LinearLayout 
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="150px">
+        <TableLayout
+		    android:layout_width="match_parent"
+		    android:layout_height="wrap_content"
+		    android:orientation="horizontal">
+			<TableRow >
+			    <TextView
+				    android:layout_width="wrap_content"
+				    android:layout_height="fill_parent"
+				    android:text="用户名："
+				    android:textSize="30px"
+				    android:gravity="center_vertical"/>
+		    	<EditText
+			        android:id="@+id/username"
+			        android:layout_width="wrap_content"
+			        android:layout_height="wrap_content"
+			        android:layout_weight="0.26"
+			        android:hint="请输入用户名" />
+			</TableRow>
+			<TableRow >
+			  	<TextView
+				    android:layout_width="wrap_content"
+				    android:layout_height="fill_parent"
+				    android:text="密码："
+				    android:textSize="30px"
+				    android:gravity="center_vertical|right"/>
+			    <EditText
+			        android:id="@+id/passwd"
+			        android:password="true"
+			        android:layout_width="wrap_content"
+			        android:layout_height="wrap_content"
+			        android:layout_weight="0.26"
+			        android:hint="请输入密码" /> 
+			</TableRow>
+			<Button 
+			    android:layout_width="fill_parent"
+			    android:layout_height="wrap_content"
+			    android:id="@+id/loginbtn"
+			    android:text="登录"/>
+	</TableLayout>
+    </LinearLayout>
+</LinearLayout>
