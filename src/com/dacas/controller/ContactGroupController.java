@@ -44,7 +44,7 @@ public class ContactGroupController {
 	}
 	public ContactGroupController(Context context){
 		this.context = context;
-		this.manager = new DBManager(context);
+		this.manager = DBManager.getInstance(context);
 	}
 	/**
 	 * 获取每个分组所包含的用户ID
@@ -75,6 +75,21 @@ public class ContactGroupController {
 		values.add(String.valueOf(contactId));
 		
 		return manager.deleteFromTable(tableName, names, values);
+	}
+
+	public boolean insert(int groupId,int contactId){
+		List<String> names = new LinkedList<String>();
+		List<String> values = new LinkedList<String>();
+		
+		names.add("groupid");
+		names.add("contactid");
+		values.add(String.valueOf(groupId));
+		values.add(String.valueOf(contactId));
+		
+		long rowId =  manager.insertIntoTable(tableName, names, values);
+		if(rowId == -1)
+			return false;
+		return true;
 	}
 	public List<Integer> restoreObjectFromCursor(Cursor cursor){
 		List<Integer> res = new LinkedList<Integer>();

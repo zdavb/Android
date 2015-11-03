@@ -60,7 +60,7 @@ public class ContactController {
 	
 	public ContactController(Context context){
 		this.context = context;
-		this.manager = new DBManager(context);
+		this.manager = DBManager.getInstance(context);
 	}
 	/**
 	 * 获取全部联系人

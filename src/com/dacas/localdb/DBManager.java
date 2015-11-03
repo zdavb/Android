@@ -2,6 +2,8 @@ package com.dacas.localdb;
 
 import java.util.List;
 
+import com.dacas.telegram.MyApplication;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -9,13 +11,24 @@ import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
 public class DBManager{
+	static DBManager manager;
 	SQLiteDatabase database;
 	LocalDBHelper helper;
 	String TAG  = getClass().getSimpleName();
 	
-	public DBManager(Context context) {
+	private DBManager(Context context) {
 		helper = new LocalDBHelper(context);
 		database = helper.getWritableDatabase();
+	}
+	//单例模式
+	public static DBManager getInstance(Context context){
+		if(manager == null){
+			synchronized (DBManager.class) {
+				if(manager == null)
+					manager = new DBManager(MyApplication.context);
+			}
+		}
+		return manager;
 	}
 	/**
 	 * 添加一条新的记录

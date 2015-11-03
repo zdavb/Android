@@ -1,10 +1,13 @@
 package com.dacas.telegram;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import android.R.integer;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
@@ -41,13 +44,11 @@ import com.dacas.model.ContactModel;
 
 public class ContactGroupActivity extends Activity implements OnClickListener,DialogInterface.OnClickListener{
 	List<ContactGroupModel> parentData;
-	Map<Integer, List<ContactModel>> sonsData;
 	List<ContactModel> contacts;
+	Set<String> groupNameSet;
 	
-	EditText text;
-	EditText changeGroupNameText;
-	int GroupPositionForOperation;//待操作的组位置；删除分组||更改组名称
-	int ChildPositionForOperation;//待操作的元素位置 删除||移动||复制
+	EditText newGroupText;//新建分组
+	EditText changeGroupNameText;//改变组名
 	
 	Dialog newGroupDialog;//新建分组的dialog
 	Dialog deleteGroupDialog;//删除分组的dialog
@@ -64,37 +65,35 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 	ExpandableListView view;
 	ExpandableAdapter adapter;
 	
-	int groupPositionOfchildItemOnLongClick;
+	ContactGroupModel groupOfLongClick;
+	ContactModel contactOfLongClick;
+	List<ContactGroupModel> chooseGroupModels;//选择哪个分组
 	class ExpandableAdapter extends BaseExpandableListAdapter{
 		@Override
 		public Object getChild(int groupPosition, int childPosition) {
-			// TODO Auto-generated method stub
-			int groupId = parentData.get(groupPosition).id;
-			return sonsData.get(groupId).get(childPosition);
+			return parentData.get(groupPosition).contacts.get(childPosition);
 		}
 		@Override
 		public long getChildId(int groupPosition, int childPosition) {
-			return 0;
+			return parentData.get(groupPosition).contacts.get(childPosition).id;
 		}
 		@Override
 		public int getChildrenCount(int groupPosition) {
-			// TODO Auto-generated method stub
-			int groupId = parentData.get(groupPosition).id;
-			return sonsData.get(groupId).size();
+			return parentData.get(groupPosition).contacts.size();//子元素的个数
 		}
 		@Override
 		public View getChildView(int groupPosition, int childPosition,
 				boolean isLastChild, View convertView, ViewGroup parent) {
 			// TODO Auto-generated method stub
 			TextView view = null;
-			int groupId = parentData.get(groupPosition).id;
-			ContactModel model = sonsData.get(groupId).get(childPosition);
+			ContactModel childModel = parentData.get(groupPosition).contacts.get(childPosition);
+			
 			if(convertView != null){
 				view = (TextView)convertView;
-				view.setText(model.agency+" "+model.name);//单位+姓名
+				view.setText(childModel.agency+" "+childModel.name);//单位+姓名
 				view.setTag(groupPosition);
 			}else{
-				view = createView(model.agency+" "+model.name);
+				view = createView(childModel.agency+" "+childModel.name);
 				view.setTag(groupPosition);
 			}
 			return view;
@@ -109,8 +108,7 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 		}
 		@Override
 		public long getGroupId(int groupPosition) {
-			// TODO Auto-generated method stub
-			return 0;
+			return parentData.get(groupPosition).id;
 		}
 		@Override
 		public View getGroupView(int groupPosition, boolean isExpanded,
@@ -148,25 +146,26 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 	protected void onCreate(Bundle savedInstanceState) {
 		// TODO Auto-generated method stub
 		super.onCreate(savedInstanceState);
-		groupController = new GroupController(ContactGroupActivity.this);
-		contactGroupController = new ContactGroupController(ContactGroupActivity.this);
-		contactController = new ContactController(ContactGroupActivity.this);
+		groupController = new GroupController(this);
+		contactGroupController = new ContactGroupController(this);
+		contactController = new ContactController(this);
 		
 		//自定义标题栏
 		requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
 		setContentView(R.layout.expandable_listview_group);
-		
 		getWindow().setFeatureInt(Window.FEATURE_CUSTOM_TITLE, R.layout.activity_title_bar);
+		
+		//获取主页面的空间
 		TextView title_info = (TextView)findViewById(R.id.title_info);
 		TextView title_content = (TextView)findViewById(R.id.title_content);
-		TextView back = (TextView)findViewById(R.id.title_back);
+		TextView title_back = (TextView)findViewById(R.id.title_back);
 		title_info.setText("新建分组");
 		title_content.setText("联系人分组");
 		title_info.setVisibility(View.VISIBLE);
 		
 		//添加响应事件
 		title_info.setOnClickListener(this);//新建分组
-		back.setOnClickListener(this);//返回键
+		title_back.setOnClickListener(this);//返回键
 		
 		//初始化Adapter数据
 		initGroupData();
@@ -178,42 +177,35 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 			@Override
 			public boolean onChildClick(ExpandableListView parent, View v,
 					int groupPosition, int childPosition, long id) {
-				int groupId = parentData.get(groupPosition).id;
-				ContactModel model = sonsData.get(groupId).get(childPosition);
+				ContactModel contact = parentData.get(groupPosition).contacts.get(childPosition);
 				Intent intent = new Intent(ContactGroupActivity.this,ContactDetail.class);
-				intent.putExtra("id", model.id);
-				intent.putExtra("name", model.name);
-				intent.putExtra("phone", model.phone);
-				intent.putExtra("office", model.office);
-				intent.putExtra("agency", model.agency);
-				intent.putExtra("department", model.department);
+				intent.putExtra("content", contact);
 				startActivity(intent);
-				return false;
+				return true;
 			}
 		});
 		view.setOnItemLongClickListener(new OnItemLongClickListener() {//设置元素长按点击事件
 			@Override
 			public boolean onItemLongClick(AdapterView<?> parent, View view,
 					int position, long id) {
-				// TODO Auto-generated method stub
-				
+				//获取长按的是子元素还是组元素
 				int itemType = ExpandableListView.getPackedPositionType(id);
 				if(itemType == ExpandableListView.PACKED_POSITION_TYPE_GROUP){//长按组名
-					Builder groupTmpBuilder = new AlertDialog.Builder(ContactGroupActivity.this);
-					groupTmpBuilder.setTitle("选择操作");
-					groupTmpBuilder.setItems(new String[]{"删除分组","更改组名"}, ContactGroupActivity.this);
+					Builder groupDialogBuilder = new AlertDialog.Builder(ContactGroupActivity.this);
+					groupDialogBuilder.setTitle("选择操作");
+					groupDialogBuilder.setItems(new String[]{"删除分组","更改组名"}, ContactGroupActivity.this);
 					
-					GroupPositionForOperation = position;
-					chooseOperationOnGroupDialog = groupTmpBuilder.show();
+					groupOfLongClick = (ContactGroupModel)parent.getItemAtPosition(position);
+					chooseOperationOnGroupDialog = groupDialogBuilder.show();
 				}else if(itemType == ExpandableListView.PACKED_POSITION_TYPE_CHILD){//长按子节点
-					Builder childTmpBuilder = new AlertDialog.Builder(ContactGroupActivity.this);
-					childTmpBuilder.setTitle("选择操作");
-					childTmpBuilder.setItems(new String[]{"删除","移动","复制"}, ContactGroupActivity.this);
+					Builder childDialogBuilder = new AlertDialog.Builder(ContactGroupActivity.this);
+					childDialogBuilder.setTitle("选择操作");
+					childDialogBuilder.setItems(new String[]{"删除","移动","复制"}, ContactGroupActivity.this);
 
-					groupPositionOfchildItemOnLongClick = (Integer)view.getTag();
-
-					ChildPositionForOperation = position;
-					chooseOperationOnChildDialog = childTmpBuilder.show();
+					int groupPos = (Integer)view.getTag();
+					groupOfLongClick = parentData.get(groupPos);//get tag 表示获取当前view的父元素的位置
+					contactOfLongClick = (ContactModel)parent.getItemAtPosition(position);
+					chooseOperationOnChildDialog = childDialogBuilder.show();
 				}
 				return true;
 			}
@@ -224,8 +216,9 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 	 */
 	private void initGroupData(){
 		parentData = groupController.getAllGroups();//获取全部组信息
-		sonsData = new HashMap<Integer, List<ContactModel>>();
 		contacts = contactController.getAllContacts();//获取全部联系人信息
+		groupNameSet = new HashSet<String>();
+		
 		Map<Integer, ContactModel> contactMap = new HashMap<Integer, ContactModel>();
 		
 		int size = contacts.size();
@@ -236,34 +229,17 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 		
 		for(int i = 0;i<parentData.size();i++){
 			int groupId = parentData.get(i).id;
-			List<Integer> contactId = contactGroupController.getContacts(groupId);//获得了组内所有联系人的ID
+			groupNameSet.add(parentData.get(i).name);
+			
+			List<Integer> contactIds = contactGroupController.getContacts(groupId);//获得了组内所有联系人的ID
 			List<ContactModel> contactList = new LinkedList<ContactModel>();
 			//添加引用，也许有多个引用会指向同一个元素，但是它们是满足条件的
-			for(int j = 0;j<contactId.size();j++)
-				contactList.add(contactMap.get(contactId.get(j)));
+			for(int j = 0;j<contactIds.size();j++)
+				contactList.add(contactMap.get(contactIds.get(j)));
 			
 			parentData.get(i).contacts = contactList;
-			sonsData.put(groupId, contactList);
 		}
 	}
-	private List<ContactGroupModel> getData(){
-		List<ContactGroupModel> res = new LinkedList<ContactGroupModel>();
-		DBManager manager = new DBManager(this);
-		Cursor cursor = manager.selectAllFromTable(GroupController.tableName, null, null);
-		if(cursor == null)
-			return res;
-		
-		while(cursor.moveToNext()){
-			ContactGroupModel model = new ContactGroupModel();
-			model.id = cursor.getInt(cursor.getColumnIndex("id"));
-			model.name = cursor.getString(cursor.getColumnIndex("name"));
-			model.priority = cursor.getInt(cursor.getColumnIndex("priority"));
-			
-			res.add(model);
-		}
-		return res;
-	}
-	
 	//处理view的点击事件
 	@Override
 	public void onClick(View v) {
@@ -281,7 +257,7 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 			builder.setNegativeButton("取消", this);
 			builder.setPositiveButton("确定", this);
 			
-			text = (EditText)layout.findViewById(R.id.dialog_edittext);
+			newGroupText = (EditText)layout.findViewById(R.id.dialog_edittext);
 			newGroupDialog = builder.show();
 			break;
 		default:
@@ -292,10 +268,17 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 	@Override
 	public void onClick(DialogInterface dialog, int which) {
 		if(dialog.equals(newGroupDialog) && which == -1){//新建分组操作
-			String groupName = text.getText().toString();
+			String groupName = newGroupText.getText().toString();
+			if(groupNameSet.contains(groupName)){
+				Toast.makeText(ContactGroupActivity.this, "该分组名已经存在，请更换", Toast.LENGTH_SHORT).show();
+				return;
+			}
+			groupNameSet.add(groupName);
+			
 			ContactGroupModel group = new ContactGroupModel();
 			group.name = groupName;
 			group.priority = Integer.parseInt(GroupController.USER_PRORITY);//设置用户优先级
+			group.contacts = new LinkedList<ContactModel>();
 			
 			long rowId = groupController.addNewGroup(groupName);
 			if(rowId == -1){//插入失败
@@ -304,39 +287,29 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 				group.id = (int)rowId;
 				//添加到组list
 				parentData.add(group);
-				sonsData.put(group.id, new LinkedList<ContactModel>());
 				Toast.makeText(ContactGroupActivity.this, "添加新组成功", Toast.LENGTH_SHORT).show();
 			}
 		}
 		else if(dialog.equals(deleteGroupDialog) && which == -1){//删除分组操作
-			ContactGroupModel groupModel = (ContactGroupModel)view.getItemAtPosition(GroupPositionForOperation);
-			//find group position and remove it
-			for(int i = 0;i<parentData.size();i++){
-				ContactGroupModel tmpModel = parentData.get(i);
-				if(tmpModel.id == groupModel.id)
-					parentData.remove(i);
-			}
-			sonsData.remove(groupModel.id);//删除相关分组
-			
-			boolean result = groupController.deleteGroup(groupModel);
-			adapter.notifyDataSetChanged();
-			if(result)
+			parentData.remove(groupOfLongClick);
+			boolean result = groupController.deleteGroup(groupOfLongClick);
+			if(result){
+				adapter.notifyDataSetChanged();
 				Toast.makeText(ContactGroupActivity.this, "删除成功", Toast.LENGTH_SHORT).show();
+			}
 			else
 				Toast.makeText(ContactGroupActivity.this, "删除失败", Toast.LENGTH_SHORT).show();
 		}else if(dialog.equals(changeGroupNameDialog) && which == -1){//更新分组操作
 			String newGroupName = changeGroupNameText.getText().toString();
-			ContactGroupModel groupModel = (ContactGroupModel)view.getItemAtPosition(GroupPositionForOperation);
-			groupModel.name = newGroupName;
+			groupOfLongClick.name = newGroupName;
 			//更新到数据库
-			boolean result = groupController.updateGroupName(groupModel);
+			boolean result = groupController.updateGroupName(groupOfLongClick);
 			if(result)
 				Toast.makeText(ContactGroupActivity.this, "更新成功", Toast.LENGTH_SHORT).show();
 			else
 				Toast.makeText(ContactGroupActivity.this, "更新失败", Toast.LENGTH_SHORT).show();
 		}
 		else if(dialog.equals(chooseOperationOnGroupDialog)){
-//			Toast.makeText(ContactGroupActivity.this, String.valueOf(which), Toast.LENGTH_SHORT).show();
 			switch (which) {
 			case 0://删除分组
 				AlertDialog.Builder deleteTmpDialog = new AlertDialog.Builder(this);
@@ -362,15 +335,13 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 				break;
 			}
 		}else if(dialog.equals(chooseOperationOnChildDialog)){
-			ContactModel model = (ContactModel)view.getItemAtPosition(ChildPositionForOperation);
-			Log.d("chooseOperation", model.toString());
-			//Toast.makeText(ContactGroupActivity.this, "position:"+ChildPositionForOperation+"which:"+which, Toast.LENGTH_SHORT).show();
+			Log.d("chooseOperation", contactOfLongClick.toString());
 			switch (which) {
-				case 0://删除
-					List<ContactModel> list = sonsData.get(groupPositionOfchildItemOnLongClick);
-					list.remove(model);
+				case 0:
+					Log.d("contact group", groupOfLongClick.toString());
+					groupOfLongClick.contacts.remove(contactOfLongClick);//删除组中某一个成员
 					//从数据库中删除
-					int count = contactGroupController.delete(groupPositionOfchildItemOnLongClick,model.id);
+					int count = contactGroupController.delete(groupOfLongClick.id,contactOfLongClick.id);
 					if(count == 1){
 						Toast.makeText(ContactGroupActivity.this, "删除成功", Toast.LENGTH_SHORT).show();
 						adapter.notifyDataSetChanged();
@@ -388,9 +359,43 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 					break;
 			}
 		}else if(dialog.equals(moveGroupDialog)){
-			Toast.makeText(ContactGroupActivity.this, "移动到分组"+String.valueOf(which), Toast.LENGTH_SHORT).show();
+			ContactGroupModel targetGroup = chooseGroupModels.get(which);
+			ContactGroupModel sourceGroup = groupOfLongClick;
+			
+			if(targetGroup.contacts.contains(contactOfLongClick)){
+				Toast.makeText(ContactGroupActivity.this, "该分组中已经包含该联系人", Toast.LENGTH_SHORT).show();
+				return;
+			}
+			sourceGroup.contacts.remove(contactOfLongClick);
+			targetGroup.contacts.add(contactOfLongClick);
+			int res = contactGroupController.delete(sourceGroup.id, contactOfLongClick.id);
+			
+			if(res != 1){
+				Toast.makeText(ContactGroupActivity.this, "移动到分组失败", Toast.LENGTH_SHORT).show();
+			}else{
+				if(!contactGroupController.insert(targetGroup.id,contactOfLongClick.id))
+					Toast.makeText(ContactGroupActivity.this, "移动到分组失败", Toast.LENGTH_SHORT).show();
+				else {
+					Toast.makeText(ContactGroupActivity.this, "移动成功", Toast.LENGTH_SHORT).show();
+					adapter.notifyDataSetChanged();
+				}
+			}
+			
 		}else if(dialog.equals(copyGroupDialog)){
-			Toast.makeText(ContactGroupActivity.this, "复制到分组"+String.valueOf(which), Toast.LENGTH_SHORT).show();
+			ContactGroupModel targetGroup = chooseGroupModels.get(which);
+			ContactGroupModel sourceGroup = groupOfLongClick;
+			
+			if(targetGroup.contacts.contains(contactOfLongClick)){
+				Toast.makeText(ContactGroupActivity.this, "该分组中已经包含该联系人", Toast.LENGTH_SHORT).show();
+				return;
+			}
+			targetGroup.contacts.add(contactOfLongClick);
+			if(!contactGroupController.insert(targetGroup.id,contactOfLongClick.id))
+				Toast.makeText(ContactGroupActivity.this, "复制到分组失败", Toast.LENGTH_SHORT).show();
+			else {
+				Toast.makeText(ContactGroupActivity.this, "复制成功", Toast.LENGTH_SHORT).show();
+				adapter.notifyDataSetChanged();
+			}
 		}
 	}
 	//显示分组的dialog
@@ -398,15 +403,17 @@ public class ContactGroupActivity extends Activity implements OnClickListener,Di
 		Builder builder = new AlertDialog.Builder(ContactGroupActivity.this);
 		builder.setTitle("选择分组");
 		int size = parentData.size();
-		String[] names = new String[size-1];
+		chooseGroupModels = new LinkedList<ContactGroupModel>();
+		String[] groupNames = new String[size-1];
 		int index = 0;
+		
 		for(int i = 0;i<size;i++){
-			ContactGroupModel groupModel = parentData.get(i);
-			if(i != groupPositionOfchildItemOnLongClick){
-				names[index++] = groupModel.name;
+			if(parentData.get(i) != groupOfLongClick){
+				chooseGroupModels.add(parentData.get(i));
+				groupNames[index++] = parentData.get(i).name;
 			}
 		}
-		builder.setItems(names, this);
+		builder.setItems(groupNames, this);
 		return builder.show();
 	}
 }

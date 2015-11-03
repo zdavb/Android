@@ -1,7 +1,9 @@
 package com.dacas.model;
 
+import java.io.Serializable;
+
 //联系人Model
-public class ContactModel {
+public class ContactModel implements Serializable{
 	public int id;//ID
 	public String name;//姓名
 	public String office;//单位

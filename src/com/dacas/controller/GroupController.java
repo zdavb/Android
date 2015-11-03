@@ -18,7 +18,7 @@ public class GroupController {
 	DBManager manager;
 	public GroupController(Context context) {
 		this.context = context;
-		this.manager = new DBManager(context);
+		this.manager = DBManager.getInstance(context);
 	}
 	/**
 	 * 获取建组表SQL语句
